@@ -1,101 +1,72 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Tetris Classic</title>
-  <style>
-    html, body {
-      margin: 0; padding: 0;
-      background: #111;
-      color: white;
-      font-family: monospace, monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      height: 100vh;
-      overflow: hidden;
-      user-select: none;
-    }
-    h1 {
-      margin-top: 10px;
-      margin-bottom: 5px;
-    }
-    canvas {
-      border: 2px solid white;
-      background: black;
-      image-rendering: pixelated;
-      width: 240px;
-      height: 480px; /* 10x20 Felder, 24px pro Feld */
-    }
-    #menu, #pauseOverlay, #gameOverOverlay {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.9);
-      border: 2px solid white;
-      padding: 20px 30px;
-      text-align: center;
-      z-index: 10;
-    }
-    #menu button, #pauseOverlay button, #gameOverOverlay button {
-      margin-top: 15px;
-      padding: 8px 15px;
-      font-size: 16px;
-      cursor: pointer;
-      background: #222;
-      border: 1px solid white;
-      color: white;
-    }
-    #info {
-      margin-top: 5px;
-      font-size: 18px;
-    }
-    #controls {
-      margin-top: 10px;
-      max-width: 300px;
-      font-size: 14px;
-      text-align: left;
-      line-height: 1.3;
-      user-select: none;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Tetris Classic - Robust Pause & Touch</title>
+<style>
+  body {
+    margin: 0; padding: 0;
+    background: #111;
+    color: white;
+    font-family: monospace;
+    display: flex; flex-direction: column; align-items: center;
+    user-select: none;
+  }
+  h1 {
+    margin: 10px 0 5px;
+  }
+  canvas {
+    border: 2px solid white;
+    background: black;
+    image-rendering: pixelated;
+    width: 240px;
+    height: 480px;
+  }
+  #info {
+    margin-top: 10px;
+    font-size: 18px;
+  }
+  #pauseOverlay, #gameOverOverlay {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    padding: 30px 50px;
+    border: 2px solid white;
+    text-align: center;
+    z-index: 100;
+    display: none;
+  }
+  button {
+    margin-top: 15px;
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+    background: #222;
+    border: 1px solid white;
+    color: white;
+  }
+</style>
 </head>
 <body>
-  <h1>Tetris Classic</h1>
 
-  <div id="menu">
-    <h2>Startmenü</h2>
-    <button id="startBtn">Spiel Starten</button>
-  </div>
+<h1>Tetris Classic</h1>
 
-  <canvas id="tetris" width="240" height="480" style="display:none;"></canvas>
+<canvas id="tetris" width="240" height="480"></canvas>
+<div id="info">Punkte: <span id="score">0</span> | Level: <span id="level">1</span></div>
 
-  <div id="info" style="display:none;">
-    Punkte: <span id="score">0</span> | Level: <span id="level">1</span>
-  </div>
+<div id="pauseOverlay">
+  <h2>Pause</h2>
+  <button id="resumeBtn">Fortsetzen</button>
+</div>
 
-  <div id="controls" style="display:none;">
-    <strong>Steuerung:</strong>
-    <ul>
-      <li>PC: Pfeiltasten ← → ↓ ↑ (Links, Rechts, Runter, Drehen)</li>
-      <li>Smartphone: Wischen links/rechts/runter, Tap zum Drehen</li>
-      <li>Esc: Pause / Fortsetzen</li>
-    </ul>
-  </div>
-
-  <div id="pauseOverlay" style="display:none;">
-    <h2>Pause</h2>
-    <button id="resumeBtn">Weiter</button>
-  </div>
-
-  <div id="gameOverOverlay" style="display:none;">
-    <h2>Game Over</h2>
-    <p>Highscore:</p>
-    <div id="highscores" style="max-height:150px; overflow-y:auto; text-align:left; font-family: monospace;"></div>
-    <button id="restartBtn">Neu starten</button>
-  </div>
+<div id="gameOverOverlay">
+  <h2>Game Over</h2>
+  <p>Highscore:</p>
+  <div id="highscores" style="font-family: monospace; text-align: left;"></div>
+  <button id="restartBtn">Neu starten</button>
+</div>
 
 <script>
 (() => {
@@ -103,13 +74,9 @@
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
   const levelEl = document.getElementById('level');
-  const menu = document.getElementById('menu');
-  const info = document.getElementById('info');
-  const controls = document.getElementById('controls');
   const pauseOverlay = document.getElementById('pauseOverlay');
   const gameOverOverlay = document.getElementById('gameOverOverlay');
   const highscoresDiv = document.getElementById('highscores');
-  const startBtn = document.getElementById('startBtn');
   const resumeBtn = document.getElementById('resumeBtn');
   const restartBtn = document.getElementById('restartBtn');
 
@@ -119,116 +86,104 @@
 
   const COLORS = [
     null,
-    '#00f0f0', // I cyan
-    '#0000f0', // J blue
-    '#f0a000', // L orange
-    '#f0f000', // O yellow
-    '#00f000', // S green
-    '#a000f0', // T purple
-    '#f00000'  // Z red
+    '#00f0f0', // I
+    '#0000f0', // J
+    '#f0a000', // L
+    '#f0f000', // O
+    '#00f000', // S
+    '#a000f0', // T
+    '#f00000'  // Z
   ];
 
   const SHAPES = [
     [],
-    [ // I
-      [0,0,0,0],
-      [1,1,1,1],
-      [0,0,0,0],
-      [0,0,0,0]
-    ],
-    [ // J
-      [2,0,0],
-      [2,2,2],
-      [0,0,0]
-    ],
-    [ // L
-      [0,0,3],
-      [3,3,3],
-      [0,0,0]
-    ],
-    [ // O
-      [4,4],
-      [4,4]
-    ],
-    [ // S
-      [0,5,5],
-      [5,5,0],
-      [0,0,0]
-    ],
-    [ // T
-      [0,6,0],
-      [6,6,6],
-      [0,0,0]
-    ],
-    [ // Z
-      [7,7,0],
-      [0,7,7],
-      [0,0,0]
-    ]
+    [[0,0,0,0],
+     [1,1,1,1],
+     [0,0,0,0],
+     [0,0,0,0]], // I
+
+    [[2,0,0],
+     [2,2,2],
+     [0,0,0]], // J
+
+    [[0,0,3],
+     [3,3,3],
+     [0,0,0]], // L
+
+    [[4,4],
+     [4,4]], // O
+
+    [[0,5,5],
+     [5,5,0],
+     [0,0,0]], // S
+
+    [[0,6,0],
+     [6,6,6],
+     [0,0,0]], // T
+
+    [[7,7,0],
+     [0,7,7],
+     [0,0,0]]  // Z
   ];
 
-  let arena = createMatrix(COLS, ROWS);
-
-  let dropCounter = 0;
-  let dropInterval = 1000;
-  let lastTime = 0;
-  let score = 0;
-  let level = 1;
-  let linesCleared = 0;
-  let paused = false;
-  let gameOver = false;
-
-  let player = {
-    pos: {x: 0, y: 0},
-    matrix: null,
-    type: 0
-  };
-
+  // Spielfeld Matrix
   function createMatrix(w,h){
     const matrix = [];
-    for(let y=0; y<h; y++){
+    for(let i=0; i<h; i++){
       matrix.push(new Array(w).fill(0));
     }
     return matrix;
   }
 
+  // Spielfeld initialisieren
+  let arena = createMatrix(COLS, ROWS);
+
+  // Spieler-Daten
+  let player = {
+    pos: {x:0, y:0},
+    matrix: null,
+    type: 0
+  };
+
+  // Punkte, Level, Status
+  let score = 0;
+  let level = 1;
+  let linesCleared = 0;
+  let dropInterval = 1000;
+  let dropCounter = 0;
+  let lastTime = 0;
+  let paused = false;
+  let gameOver = false;
+
+  // Zeichnen
   function drawMatrix(matrix, offset){
-    matrix.forEach((row, y) => {
-      row.forEach((value, x) => {
+    matrix.forEach((row,y) => {
+      row.forEach((value,x) => {
         if(value !== 0){
           ctx.fillStyle = COLORS[value];
-          ctx.fillRect(
-            (x + offset.x)*BLOCK_SIZE,
-            (y + offset.y)*BLOCK_SIZE,
-            BLOCK_SIZE,
-            BLOCK_SIZE
-          );
+          ctx.fillRect((x+offset.x)*BLOCK_SIZE, (y+offset.y)*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
           ctx.strokeStyle = '#111';
           ctx.lineWidth = 2;
-          ctx.strokeRect(
-            (x + offset.x)*BLOCK_SIZE,
-            (y + offset.y)*BLOCK_SIZE,
-            BLOCK_SIZE,
-            BLOCK_SIZE
-          );
+          ctx.strokeRect((x+offset.x)*BLOCK_SIZE, (y+offset.y)*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
         }
       });
     });
   }
 
   function draw(){
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0,0,canvas.width, canvas.height);
     drawMatrix(arena, {x:0,y:0});
     drawMatrix(player.matrix, player.pos);
   }
 
+  // Kollision prüfen
   function collide(arena, player){
     const m = player.matrix;
     const o = player.pos;
     for(let y=0; y<m.length; y++){
       for(let x=0; x<m[y].length; x++){
         if(m[y][x] !== 0 &&
-           ((arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0)){
+           (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0){
           return true;
         }
       }
@@ -236,9 +191,10 @@
     return false;
   }
 
+  // Figur in Spielfeld einfügen
   function merge(arena, player){
-    player.matrix.forEach((row, y) => {
-      row.forEach((value, x) => {
+    player.matrix.forEach((row,y) => {
+      row.forEach((value,x) => {
         if(value !== 0){
           arena[y + player.pos.y][x + player.pos.x] = value;
         }
@@ -246,6 +202,7 @@
     });
   }
 
+  // Matrix rotieren (90° im Uhrzeigersinn)
   function rotate(matrix){
     const N = matrix.length;
     const result = [];
@@ -260,6 +217,7 @@
     return result;
   }
 
+  // Spieler rotation
   function playerRotate(){
     const rotated = rotate(player.matrix);
     const posX = player.pos.x;
@@ -268,42 +226,43 @@
     while(collide(arena, player)){
       player.pos.x += offset;
       offset = -(offset + (offset > 0 ? 1 : -1));
-      if(offset > player.matrix[0].length){
-        player.matrix = rotate(rotate(rotate(player.matrix))); // 3x rotate zurück
+      if(Math.abs(offset) > player.matrix[0].length){
+        // Rotation zurücknehmen
+        for(let i=0; i<3; i++) player.matrix = rotate(player.matrix);
         player.pos.x = posX;
         return;
       }
     }
   }
 
+  // Spieler setzt Figur nach unten (1 Feld)
   function playerDrop(){
     player.pos.y++;
     if(collide(arena, player)){
       player.pos.y--;
       merge(arena, player);
-      resetPlayer();
       clearLines();
       updateScore();
+      resetPlayer();
     }
     dropCounter = 0;
   }
 
+  // Linien löschen und Punkte vergeben
   function clearLines(){
-    let rowCount = 0;
-    outer: for(let y = arena.length -1; y>=0; y--){
+    let lines = 0;
+    outer: for(let y = arena.length -1; y >=0; y--){
       for(let x=0; x<arena[y].length; x++){
-        if(arena[y][x] === 0){
-          continue outer;
-        }
+        if(arena[y][x] === 0) continue outer;
       }
       const row = arena.splice(y,1)[0].fill(0);
       arena.unshift(row);
-      y++; // nochmal checken an gleicher Position
-      rowCount++;
+      y++;
+      lines++;
     }
-    if(rowCount > 0){
-      linesCleared += rowCount;
-      score += calculateScore(rowCount);
+    if(lines > 0){
+      linesCleared += lines;
+      score += [0,40,100,300,1200][lines]*level;
       const newLevel = Math.floor(linesCleared / 10) + 1;
       if(newLevel > level){
         level = newLevel;
@@ -312,42 +271,31 @@
     }
   }
 
-  function calculateScore(lines){
-    switch(lines){
-      case 1: return 40 * level;
-      case 2: return 100 * level;
-      case 3: return 300 * level;
-      case 4: return 1200 * level;
-      default: return 0;
-    }
-  }
-
+  // Score & Level Update im UI
   function updateScore(){
     scoreEl.textContent = score;
     levelEl.textContent = level;
   }
 
+  // Neue Figur starten
   function resetPlayer(){
     const pieces = 'TJLOSZI';
-    const type = pieces[Math.floor(Math.random() * pieces.length)];
-    player.type = 'TJLOSZI'.indexOf(type) + 1;
+    player.type = Math.floor(Math.random()*pieces.length) +1;
     player.matrix = SHAPES[player.type];
     player.pos.y = 0;
-    player.pos.x = Math.floor((COLS / 2) - (player.matrix[0].length / 2));
+    player.pos.x = Math.floor((COLS/2) - (player.matrix[0].length/2));
     if(collide(arena, player)){
       gameOver = true;
       showGameOver();
     }
   }
 
+  // Game Over anzeigen
   function showGameOver(){
     gameOverOverlay.style.display = 'block';
-    canvas.style.display = 'none';
-    info.style.display = 'none';
-    controls.style.display = 'none';
     pauseOverlay.style.display = 'none';
 
-    // Highscore speichern und anzeigen
+    // Highscore speichern
     let highscores = JSON.parse(localStorage.getItem('tetrisHighscores') || '[]');
     highscores.push(score);
     highscores.sort((a,b) => b - a);
@@ -357,27 +305,25 @@
     highscoresDiv.innerHTML = highscores.map((s,i) => `${i+1}. ${s}`).join('<br>');
   }
 
+  // Spiel neu starten
   function resetGame(){
     arena = createMatrix(COLS, ROWS);
     score = 0;
     level = 1;
     linesCleared = 0;
     dropInterval = 1000;
-    gameOver = false;
+    dropCounter = 0;
+    lastTime = 0;
     paused = false;
+    gameOver = false;
     updateScore();
     resetPlayer();
-    menu.style.display = 'none';
     gameOverOverlay.style.display = 'none';
-    canvas.style.display = 'block';
-    info.style.display = 'block';
-    controls.style.display = 'block';
     pauseOverlay.style.display = 'none';
-    lastTime = 0;
-    dropCounter = 0;
     requestAnimationFrame(update);
   }
 
+  // Pause umschalten
   function togglePause(){
     if(gameOver) return;
     paused = !paused;
@@ -388,7 +334,7 @@
     }
   }
 
-  // Update-Loop
+  // Update Loop
   function update(time = 0){
     if(paused || gameOver) return;
     const deltaTime = time - lastTime;
@@ -401,28 +347,21 @@
     requestAnimationFrame(update);
   }
 
-  // Controls
-
+  // Tastatursteuerung
   document.addEventListener('keydown', e => {
     if(gameOver) return;
     if(paused){
-      if(e.key === 'Escape'){
-        togglePause();
-      }
+      if(e.key === 'Escape') togglePause();
       return;
     }
     switch(e.key){
       case 'ArrowLeft':
         player.pos.x--;
-        if(collide(arena, player)){
-          player.pos.x++;
-        }
+        if(collide(arena, player)) player.pos.x++;
         break;
       case 'ArrowRight':
         player.pos.x++;
-        if(collide(arena, player)){
-          player.pos.x--;
-        }
+        if(collide(arena, player)) player.pos.x--;
         break;
       case 'ArrowDown':
         playerDrop();
@@ -434,13 +373,15 @@
         togglePause();
         break;
     }
+    draw();
   });
 
   // Touchsteuerung für Smartphone
-
   let touchStartX = 0;
   let touchStartY = 0;
   let touchStartTime = 0;
+  let swipeThreshold = 20;
+  let tapMaxTime = 300;
 
   canvas.addEventListener('touchstart', e => {
     if(gameOver || paused) return;
@@ -458,53 +399,35 @@
     const dt = performance.now() - touchStartTime;
     const absDx = Math.abs(dx);
     const absDy = Math.abs(dy);
-    const swipeThreshold = 20; // minimale Bewegung in px
-    const tapMaxDuration = 300; // Max Zeit für Tap
 
-    if(absDx < swipeThreshold && absDy < swipeThreshold && dt < tapMaxDuration){
-      // Tap: Drehen
+    if(absDx < swipeThreshold && absDy < swipeThreshold && dt < tapMaxTime){
+      // Tap = drehen
       playerRotate();
       draw();
       return;
     }
 
     if(absDx > absDy){
-      // Horizontal swipe
+      // horizontal swipen
       if(dx > 0){
-        // swipe rechts
         player.pos.x++;
         if(collide(arena, player)) player.pos.x--;
       } else {
-        // swipe links
         player.pos.x--;
         if(collide(arena, player)) player.pos.x++;
       }
     } else {
-      // Vertikal swipe
+      // vertikal swipe
       if(dy > 0){
-        // swipe runter → schneller fallen lassen (1 Schritt nach unten)
-        player.pos.y++;
-        if(collide(arena, player)){
-          player.pos.y--;
-          merge(arena, player);
-          resetPlayer();
-          clearLines();
-          updateScore();
-        }
-        dropCounter = 0;
-      } else {
-        // swipe hoch (optional: Hard drop, hier noch nicht implementiert)
+        // swipe runter: Block sofort 1 Feld runter fallen lassen
+        playerDrop();
       }
+      // swipe hoch ignorieren (optional später Hard Drop)
     }
     draw();
   });
 
   // Button Events
-
-  startBtn.addEventListener('click', () => {
-    resetGame();
-  });
-
   resumeBtn.addEventListener('click', () => {
     togglePause();
   });
@@ -512,6 +435,9 @@
   restartBtn.addEventListener('click', () => {
     resetGame();
   });
+
+  // Start direkt
+  resetGame();
 
 })();
 </script>
