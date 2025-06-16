@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Tetris mit Tap-über-Block Rotation</title>
+<title>Tetris mit Steuerkreuz</title>
 <style>
   body {
     margin:0; padding:0; background:#111; color:#fff; font-family:sans-serif;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     height:100vh; user-select:none;
+    overflow: hidden;
   }
   canvas {
     border: 2px solid white;
@@ -21,12 +22,51 @@
   #scoreboard {
     margin-top:10px;
   }
+  #dpad {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 160px;
+    height: 160px;
+    display: grid;
+    grid-template-columns: 60px 60px 40px;
+    grid-template-rows: 60px 60px 40px;
+    gap: 10px;
+    user-select:none;
+  }
+  button {
+    background: #222;
+    border: 2px solid white;
+    border-radius: 10px;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    outline: none;
+    user-select:none;
+  }
+  button:active {
+    background: #555;
+  }
+  /* Positionierung der Buttons im Grid */
+  #left { grid-column: 1; grid-row: 2; }
+  #right { grid-column: 3; grid-row: 2; }
+  #down { grid-column: 2; grid-row: 3; }
+  #rotate { grid-column: 2; grid-row: 1; }
 </style>
 </head>
 <body>
 
 <canvas id="tetris" width="240" height="480"></canvas>
 <div id="scoreboard">Punkte: <span id="score">0</span> | Level: <span id="level">1</span></div>
+
+<!-- Steuerkreuz -->
+<div id="dpad">
+  <button id="rotate" aria-label="Drehen">⟳</button>
+  <button id="left" aria-label="Links">←</button>
+  <button id="down" aria-label="Runter">↓</button>
+  <button id="right" aria-label="Rechts">→</button>
+</div>
 
 <script>
 (() => {
@@ -210,97 +250,17 @@
       requestAnimationFrame(update);
       return;
     }
-    const delta = time - lastTime;
+    const deltaTime = time - lastTime;
     lastTime = time;
-    dropCounter += delta;
-    if(dropCounter > dropInterval){
+    dropCounter += deltaTime;
+    if(dropCounter > dropInterval) {
       playerDrop();
     }
     draw();
     requestAnimationFrame(update);
   }
 
-  window.addEventListener('keydown', e => {
-    if(e.key === 'ArrowLeft') {
-      playerMove(-1);
-    } else if(e.key === 'ArrowRight') {
-      playerMove(1);
-    } else if(e.key === 'ArrowDown') {
-      playerDrop();
-    } else if(e.key === 'ArrowUp') {
-      playerRotate(1);
-    } else if(e.key === 'Escape') {
-      paused = !paused;
-    }
-  });
-
-  // Touchsteuerung angepasst:
-  let touchStartX = 0;
-  let touchStartY = 0;
-  let touchEndX = 0;
-  let touchEndY = 0;
-  const swipeThreshold = 30;
-
-  canvas.addEventListener('touchstart', e => {
-    if(e.touches.length !== 1) return;
-    const t = e.touches[0];
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
-  });
-
-  canvas.addEventListener('touchend', e => {
-    if(e.changedTouches.length !== 1) return;
-    const t = e.changedTouches[0];
-    touchEndX = t.clientX;
-    touchEndY = t.clientY;
-
-    const dx = touchEndX - touchStartX;
-    const dy = touchEndY - touchStartY;
-
-    // Prüfen: Wenn nur ein Tap (kaum Bewegung)
-    if(Math.abs(dx) < 10 && Math.abs(dy) < 10){
-      // Tap: Prüfe, ob oberhalb des Blocks getippt wurde
-      // Position des Blocks in Pixel:
-      const blockTop = player.pos.y * BLOCK;
-      const blockLeft = player.pos.x * BLOCK;
-      const blockWidth = player.matrix[0].length * BLOCK;
-      const blockHeight = player.matrix.length * BLOCK;
-
-      // Koordinaten relativ zum Canvas
-      const rect = canvas.getBoundingClientRect();
-      const tapX = touchEndX - rect.left;
-      const tapY = touchEndY - rect.top;
-
-      if(tapX >= blockLeft && tapX <= blockLeft + blockWidth){
-        if(tapY < blockTop){
-          // Tap oberhalb des Blocks → drehen
-          playerRotate(1);
-          draw();
-          return;
-        }
-      }
-      // Tap sonst ignorieren
-      return;
-    }
-
-    // Sonstige Swipe-Bewegungen:
-    if(Math.abs(dx) > Math.abs(dy)) {
-      // Horizontaler Swipe
-      if(dx > swipeThreshold) {
-        playerMove(1);
-      } else if(dx < -swipeThreshold) {
-        playerMove(-1);
-      }
-    } else {
-      // Vertikaler Swipe
-      if(dy > swipeThreshold) {
-        // Swipe nach unten → Block schneller fallen lassen
-        playerDrop();
-      }
-    }
-
-  });
-
+  // Player Object
   const player = {
     pos: {x:0,y:0},
     matrix: null,
@@ -309,11 +269,53 @@
     lines: 0
   };
 
-  playerReset();
-  updateScore();
-  update();
+  // Steuerkreuz Button Events
+  document.getElementById('left').addEventListener('touchstart', e => {
+    e.preventDefault();
+    playerMove(-1);
+    draw();
+  });
+  document.getElementById('right').addEventListener('touchstart', e => {
+    e.preventDefault();
+    playerMove(1);
+    draw();
+  });
+  document.getElementById('down').addEventListener('touchstart', e => {
+    e.preventDefault();
+    playerDrop();
+    draw();
+  });
+  document.getElementById('rotate').addEventListener('touchstart', e => {
+    e.preventDefault();
+    playerRotate(1);
+    draw();
+  });
 
+  // PC Tastatur-Steuerung
+  window.addEventListener('keydown', e => {
+    if(e.repeat) return;
+    if(e.key === 'ArrowLeft') {
+      playerMove(-1);
+      draw();
+    } else if(e.key === 'ArrowRight') {
+      playerMove(1);
+      draw();
+    } else if(e.key === 'ArrowDown') {
+      playerDrop();
+      draw();
+    } else if(e.key === 'ArrowUp') {
+      playerRotate(1);
+      draw();
+    } else if(e.key === 'Escape'){
+      paused = !paused;
+      if(!paused) update();
+    }
+  });
+
+  playerReset();
+  update();
 })();
 </script>
+
 </body>
 </html>
