@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Tetris - Rotation per Swipe fix</title>
+<title>Tetris mit Swipe-Rotation</title>
 <style>
   body {
     margin:0; padding:0; background:#111; color:#fff; font-family:sans-serif;
@@ -234,73 +234,54 @@
     }
   });
 
-  // Touchsteuerung mit robustem Swipe nach oben für Rotation
-
+  // Touchsteuerung: Swipe nach oben = Rotation, links/rechts = Bewegung, nach unten = schneller fallen
   let touchStartX = 0;
   let touchStartY = 0;
-  let touchId = null;
-  let lastMoveTime = 0;
-  const MOVE_INTERVAL = 300; // Bewegungs-Delay
+  let touchEndX = 0;
+  let touchEndY = 0;
+  const swipeThreshold = 30; // minimaler Abstand für Swipe-Erkennung
 
   canvas.addEventListener('touchstart', e => {
     if(e.touches.length !== 1) return;
     const t = e.touches[0];
     touchStartX = t.clientX;
     touchStartY = t.clientY;
-    touchId = t.identifier;
-    lastMoveTime = 0;
-  });
-
-  canvas.addEventListener('touchmove', e => {
-    if(touchId === null) return;
-    const t = Array.from(e.touches).find(t => t.identifier === touchId);
-    if(!t) return;
-
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    const now = Date.now();
-
-    if(now - lastMoveTime < MOVE_INTERVAL) return;
-
-    // Swipe nach oben für Rotation (mind 40px hoch, weniger als 30px horizontal)
-    if(dy < -40 && Math.abs(dx) < 30) {
-      playerRotate(1);
-      lastMoveTime = now;
-      touchStartX = t.clientX;
-      touchStartY = t.clientY;
-      return;
-    }
-
-    // horizontale Bewegungen nach links/rechts
-    if(Math.abs(dx) > 20 && Math.abs(dx) > Math.abs(dy)) {
-      if(dx > 0) {
-        playerMove(1);
-      } else {
-        playerMove(-1);
-      }
-      lastMoveTime = now;
-      touchStartX = t.clientX;
-      touchStartY = t.clientY;
-      return;
-    }
-
-    // Swipe nach unten für schnellen Fall
-    if(dy > 20 && Math.abs(dy) > Math.abs(dx)) {
-      playerDrop();
-      lastMoveTime = now;
-      touchStartX = t.clientX;
-      touchStartY = t.clientY;
-      return;
-    }
-
   });
 
   canvas.addEventListener('touchend', e => {
-    touchId = null;
-  });
+    if(e.changedTouches.length !== 1) return;
+    const t = e.changedTouches[0];
+    touchEndX = t.clientX;
+    touchEndY = t.clientY;
 
-  canvas.addEventListener('touchcancel', e => {
-    touchId = null;
+    const dx = touchEndX - touchStartX;
+    const dy = touchEndY - touchStartY;
+
+    if(Math.abs(dx) < swipeThreshold && Math.abs(dy) < swipeThreshold) {
+      // Zu klein für Swipe, ignoriere
+      return;
+    }
+
+    // Swipe-Richtung erkennen
+    if(Math.abs(dy) > Math.abs(dx)) {
+      // Vertikaler Swipe
+      if(dy < 0) {
+        // Swipe nach oben = Rotation
+        playerRotate(1);
+      } else {
+        // Swipe nach unten = Block schneller fallen lassen
+        playerDrop();
+      }
+    } else {
+      // Horizontaler Swipe
+      if(dx > 0) {
+        // Swipe nach rechts
+        playerMove(1);
+      } else {
+        // Swipe nach links
+        playerMove(-1);
+      }
+    }
   });
 
   const player = {
