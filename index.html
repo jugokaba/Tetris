@@ -245,40 +245,43 @@
     return false;
   }
 
-  // Matrix rotieren (im Uhrzeigersinn)
-  function rotate(matrix){
-    const N = matrix.length;
-    const result = [];
-    for(let y=0; y<N; y++){
-      result.push(new Array(N).fill(0));
-    }
-    for(let y=0; y<N; y++){
-      for(let x=0; x<N; x++){
-        result[x][N-1 - y] = matrix[y][x];
-      }
-    }
-    return result;
+  // Matrix rotieren (Uhrzeigersinn), gibt NEUE Matrix zurück, Original bleibt unverändert
+function rotate(matrix){
+  const N = matrix.length;
+  const result = [];
+  for(let y=0; y<N; y++){
+    result.push(new Array(N).fill(0));
   }
-
-  // Block rotieren (mit Wand-Korrektur)
-  function playerRotate(){
-    const rotated = rotate(player.matrix);
-    const pos = player.pos.x;
-    let offset = 1;
-    player.matrix = rotated;
-
-    // Wandkorrektur (links/rechts)
-    while(collide(arena, player)){
-      player.pos.x += offset;
-      offset = -(offset + (offset > 0 ? 1 : -1));
-      if(offset > player.matrix[0].length){
-        // Rückrotation, falls kein Platz
-        player.matrix = rotate(rotate(rotate(player.matrix)));
-        player.pos.x = pos;
-        return;
-      }
+  for(let y=0; y<N; y++){
+    for(let x=0; x<N; x++){
+      result[x][N-1 - y] = matrix[y][x];
     }
   }
+  return result;
+}
+
+// Player rotieren mit Prüfung
+function playerRotate(){
+  const rotated = rotate(player.matrix);
+  const pos = player.pos.x;
+  let offset = 1;
+
+  // Versuch die gedrehte Version
+  player.matrix = rotated;
+
+  // Wand-Korrektur falls Kollision
+  while(collide(arena, player)){
+    player.pos.x += offset;
+    offset = -(offset + (offset > 0 ? 1 : -1));
+    if(offset > player.matrix[0].length){
+      // Drehung rückgängig machen
+      player.matrix = rotate(rotate(rotate(rotated))); // 3x Gegen-Uhrzeigersinn = Rückgängig
+      player.pos.x = pos;
+      return;
+    }
+  }
+}
+
 
   // Block in Arena übernehmen
   function merge(arena, player){
