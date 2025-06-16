@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Tetris - Bessere Touchsteuerung</title>
+<title>Tetris - Smartphone Touch & PC Tastatur</title>
 <style>
   body {
     margin:0; padding:0; background:#111; color:#fff; font-family:sans-serif;
@@ -110,7 +110,7 @@
   function playerReset() {
     const keys = Object.keys(pieces);
     const pieceType = keys[Math.floor(Math.random()*keys.length)];
-    player.matrix = pieces[pieceType].map(row => row.slice()); // deep copy wichtig!
+    player.matrix = pieces[pieceType].map(row => row.slice()); // deep copy
     player.pos.y = 0;
     player.pos.x = Math.floor(COLS/2) - Math.floor(player.matrix[0].length/2);
     if(collide(arena, player)) {
@@ -231,29 +231,15 @@
       playerRotate(1);
     } else if(e.key === 'Escape') {
       paused = !paused;
-      console.log(paused ? "Pause" : "Weiter");
     }
   });
 
-  // Erweiterte Touchsteuerung
-
+  // Touchsteuerung
   let touchStartX = 0;
   let touchStartY = 0;
   let touchId = null;
-  let moveIntervalId = null;
-
-  // Erkennen der Wischrichtung und kontinuierliche Bewegung wenn gehalten
-  function startContinuousMove(dirFunc) {
-    if(moveIntervalId) clearInterval(moveIntervalId);
-    dirFunc(); // sofort ausführen
-    moveIntervalId = setInterval(dirFunc, 150);
-  }
-  function stopContinuousMove() {
-    if(moveIntervalId) {
-      clearInterval(moveIntervalId);
-      moveIntervalId = null;
-    }
-  }
+  let lastMoveTime = 0;
+  const MOVE_INTERVAL = 300; // Millisekunden Verzögerung zwischen Bewegungen (langsamer!)
 
   canvas.addEventListener('touchstart', e => {
     if(e.touches.length !== 1) return;
@@ -261,6 +247,7 @@
     touchStartX = t.clientX;
     touchStartY = t.clientY;
     touchId = t.identifier;
+    lastMoveTime = 0; // Reset Zeit
   });
 
   canvas.addEventListener('touchmove', e => {
@@ -270,24 +257,33 @@
 
     const dx = t.clientX - touchStartX;
     const dy = t.clientY - touchStartY;
+    const now = Date.now();
 
-    // Wenn Bewegung größer als 15px
-    if(Math.abs(dx) > 15 || Math.abs(dy) > 15) {
-      // Horizontal bewegen
+    // Bewegungen nur alle MOVE_INTERVAL erlauben (langsamer)
+    if(now - lastMoveTime < MOVE_INTERVAL) return;
+
+    if(Math.abs(dx) > 20 || Math.abs(dy) > 20) {
       if(Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal bewegen
         if(dx > 0) {
-          startContinuousMove(() => playerMove(1));
+          playerMove(1);
         } else {
-          startContinuousMove(() => playerMove(-1));
+          playerMove(-1);
         }
+        lastMoveTime = now;
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
       } else {
         // Vertikal
         if(dy > 0) {
-          startContinuousMove(() => playerDrop());
+          playerDrop();
+          lastMoveTime = now;
+          touchStartX = t.clientX;
+          touchStartY = t.clientY;
         } else {
-          stopContinuousMove();
+          // Swipe nach oben = Rotation
           playerRotate(1);
-          // Nach Rotation Startposition neu setzen, damit weitere Bewegungen erkannt werden
+          lastMoveTime = now;
           touchStartX = t.clientX;
           touchStartY = t.clientY;
         }
@@ -296,11 +292,9 @@
   });
 
   canvas.addEventListener('touchend', e => {
-    stopContinuousMove();
     touchId = null;
   });
   canvas.addEventListener('touchcancel', e => {
-    stopContinuousMove();
     touchId = null;
   });
 
