@@ -117,7 +117,6 @@
   const ROWS = 20;
   const BLOCK_SIZE = 24;
 
-  // Farben der Blöcke (index 0 = leer)
   const COLORS = [
     null,
     '#00f0f0', // I cyan
@@ -129,52 +128,49 @@
     '#f00000'  // Z red
   ];
 
-  // Block-Formen (4x4 Matrices)
   const SHAPES = [
-    [], // leer
-    [   // I
+    [],
+    [ // I
       [0,0,0,0],
       [1,1,1,1],
       [0,0,0,0],
       [0,0,0,0]
     ],
-    [   // J
+    [ // J
       [2,0,0],
       [2,2,2],
       [0,0,0]
     ],
-    [   // L
+    [ // L
       [0,0,3],
       [3,3,3],
       [0,0,0]
     ],
-    [   // O
+    [ // O
       [4,4],
       [4,4]
     ],
-    [   // S
+    [ // S
       [0,5,5],
       [5,5,0],
       [0,0,0]
     ],
-    [   // T
+    [ // T
       [0,6,0],
       [6,6,6],
       [0,0,0]
     ],
-    [   // Z
+    [ // Z
       [7,7,0],
       [0,7,7],
       [0,0,0]
     ]
   ];
 
-  // Spielfeld initialisieren (0 = leer)
   let arena = createMatrix(COLS, ROWS);
 
-  // Spielzustand
   let dropCounter = 0;
-  let dropInterval = 1000; // Anfangsgeschwindigkeit 1 Sekunde
+  let dropInterval = 1000;
   let lastTime = 0;
   let score = 0;
   let level = 1;
@@ -182,14 +178,12 @@
   let paused = false;
   let gameOver = false;
 
-  // Aktueller Block (Stein)
   let player = {
     pos: {x: 0, y: 0},
     matrix: null,
     type: 0
   };
 
-  // Hilfsfunktion: Matrix erstellen
   function createMatrix(w,h){
     const matrix = [];
     for(let y=0; y<h; y++){
@@ -198,7 +192,6 @@
     return matrix;
   }
 
-  // Block zeichnen
   function drawMatrix(matrix, offset){
     matrix.forEach((row, y) => {
       row.forEach((value, x) => {
@@ -223,21 +216,19 @@
     });
   }
 
-  // Spielfeld zeichnen
   function draw(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawMatrix(arena, {x:0,y:0});
     drawMatrix(player.matrix, player.pos);
   }
 
-  // Kollision prüfen
   function collide(arena, player){
     const m = player.matrix;
     const o = player.pos;
     for(let y=0; y<m.length; y++){
       for(let x=0; x<m[y].length; x++){
         if(m[y][x] !== 0 &&
-           (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0){
+           ((arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0)){
           return true;
         }
       }
@@ -245,45 +236,6 @@
     return false;
   }
 
-  // Matrix rotieren (Uhrzeigersinn), gibt NEUE Matrix zurück, Original bleibt unverändert
-function rotate(matrix){
-  const N = matrix.length;
-  const result = [];
-  for(let y=0; y<N; y++){
-    result.push(new Array(N).fill(0));
-  }
-  for(let y=0; y<N; y++){
-    for(let x=0; x<N; x++){
-      result[x][N-1 - y] = matrix[y][x];
-    }
-  }
-  return result;
-}
-
-// Player rotieren mit Prüfung
-function playerRotate(){
-  const rotated = rotate(player.matrix);
-  const pos = player.pos.x;
-  let offset = 1;
-
-  // Versuch die gedrehte Version
-  player.matrix = rotated;
-
-  // Wand-Korrektur falls Kollision
-  while(collide(arena, player)){
-    player.pos.x += offset;
-    offset = -(offset + (offset > 0 ? 1 : -1));
-    if(offset > player.matrix[0].length){
-      // Drehung rückgängig machen
-      player.matrix = rotate(rotate(rotate(rotated))); // 3x Gegen-Uhrzeigersinn = Rückgängig
-      player.pos.x = pos;
-      return;
-    }
-  }
-}
-
-
-  // Block in Arena übernehmen
   function merge(arena, player){
     player.matrix.forEach((row, y) => {
       row.forEach((value, x) => {
@@ -294,110 +246,98 @@ function playerRotate(){
     });
   }
 
-  // Reihen prüfen und entfernen, Punkte geben
-  function arenaSweep(){
-    let rowCount = 1;
-    outer: for(let y = arena.length -1; y >= 0; y--){
+  function rotate(matrix){
+    const N = matrix.length;
+    const result = [];
+    for(let y=0; y<N; y++){
+      result.push(new Array(N).fill(0));
+    }
+    for(let y=0; y<N; y++){
+      for(let x=0; x<N; x++){
+        result[x][N-1-y] = matrix[y][x];
+      }
+    }
+    return result;
+  }
+
+  function playerRotate(){
+    const rotated = rotate(player.matrix);
+    const posX = player.pos.x;
+    let offset = 1;
+    player.matrix = rotated;
+    while(collide(arena, player)){
+      player.pos.x += offset;
+      offset = -(offset + (offset > 0 ? 1 : -1));
+      if(offset > player.matrix[0].length){
+        player.matrix = rotate(rotate(rotate(player.matrix))); // 3x rotate zurück
+        player.pos.x = posX;
+        return;
+      }
+    }
+  }
+
+  function playerDrop(){
+    player.pos.y++;
+    if(collide(arena, player)){
+      player.pos.y--;
+      merge(arena, player);
+      resetPlayer();
+      clearLines();
+      updateScore();
+    }
+    dropCounter = 0;
+  }
+
+  function clearLines(){
+    let rowCount = 0;
+    outer: for(let y = arena.length -1; y>=0; y--){
       for(let x=0; x<arena[y].length; x++){
         if(arena[y][x] === 0){
           continue outer;
         }
       }
-      // Reihe y ist voll
       const row = arena.splice(y,1)[0].fill(0);
       arena.unshift(row);
-      score += rowCount * 10;
-      linesCleared++;
-      rowCount *= 2;
-
-      // Level alle 10 Reihen erhöhen
-      if(linesCleared >= level * 10){
-        level++;
-        dropInterval = Math.max(100, dropInterval - 100); // schneller
+      y++; // nochmal checken an gleicher Position
+      rowCount++;
+    }
+    if(rowCount > 0){
+      linesCleared += rowCount;
+      score += calculateScore(rowCount);
+      const newLevel = Math.floor(linesCleared / 10) + 1;
+      if(newLevel > level){
+        level = newLevel;
+        dropInterval = Math.max(100, 1000 - (level-1)*100);
       }
-
-      y++; // weiter prüfen (wegen splice)
     }
   }
 
-  // Neuen Block generieren
-  function playerReset(){
-    const pieces = 'IJLOSTZ';
-    const type = pieces[Math.floor(Math.random() * pieces.length)];
-    // Typ zu Index in SHAPES
-    const typeIndex = 'IJLOSTZ'.indexOf(type) + 1;
-    player.matrix = SHAPES[typeIndex].map(row => row.slice());
-    player.pos.y = 0;
-    player.pos.x = Math.floor((COLS / 2) - Math.ceil(player.matrix[0].length/2));
-
-    if(collide(arena, player)){
-      gameOver = true;
-      showGameOver();
+  function calculateScore(lines){
+    switch(lines){
+      case 1: return 40 * level;
+      case 2: return 100 * level;
+      case 3: return 300 * level;
+      case 4: return 1200 * level;
+      default: return 0;
     }
   }
 
-  // Update Loop
-  function update(time = 0){
-    if(paused || gameOver) return;
-    const deltaTime = time - lastTime;
-    lastTime = time;
-    dropCounter += deltaTime;
-    if(dropCounter > dropInterval){
-      player.pos.y++;
-      if(collide(arena, player)){
-        player.pos.y--;
-        merge(arena, player);
-        arenaSweep();
-        playerReset();
-        updateScore();
-      }
-      dropCounter = 0;
-    }
-    draw();
-    requestAnimationFrame(update);
-  }
-
-  // Punkte und Level anzeigen
   function updateScore(){
     scoreEl.textContent = score;
     levelEl.textContent = level;
   }
 
-  // Spiel starten
-  function startGame(){
-    menu.style.display = 'none';
-    canvas.style.display = 'block';
-    info.style.display = 'block';
-    controls.style.display = 'block';
-    arena = createMatrix(COLS, ROWS);
-    score = 0;
-    level = 1;
-    linesCleared = 0;
-    dropInterval = 1000;
-    gameOver = false;
-    paused = false;
-    playerReset();
-    updateScore();
-    lastTime = 0;
-    dropCounter = 0;
-    requestAnimationFrame(update);
-  }
-
-  // Pause umschalten
-  function togglePause(){
-    if(gameOver) return;
-    paused = !paused;
-    pauseOverlay.style.display = paused ? 'block' : 'none';
-  }
-
-  // Highscore laden / speichern
-  function saveHighscore(){
-    let highscores = JSON.parse(localStorage.getItem('tetrisHighscores') || '[]');
-    highscores.push({score: score, date: new Date().toISOString()});
-    highscores.sort((a,b) => b.score - a.score);
-    highscores = highscores.slice(0,10);
-    localStorage.setItem('tetrisHighscores', JSON.stringify(highscores));
-    return highscores;
+  function resetPlayer(){
+    const pieces = 'TJLOSZI';
+    const type = pieces[Math.floor(Math.random() * pieces.length)];
+    player.type = 'TJLOSZI'.indexOf(type) + 1;
+    player.matrix = SHAPES[player.type];
+    player.pos.y = 0;
+    player.pos.x = Math.floor((COLS / 2) - (player.matrix[0].length / 2));
+    if(collide(arena, player)){
+      gameOver = true;
+      showGameOver();
+    }
   }
 
   function showGameOver(){
@@ -405,115 +345,176 @@ function playerRotate(){
     canvas.style.display = 'none';
     info.style.display = 'none';
     controls.style.display = 'none';
+    pauseOverlay.style.display = 'none';
 
-    const highscores = saveHighscore();
-    highscoresDiv.innerHTML = highscores.map(hs =>
-      `<div>${hs.score} Punkte - ${new Date(hs.date).toLocaleString()}</div>`
-    ).join('');
+    // Highscore speichern und anzeigen
+    let highscores = JSON.parse(localStorage.getItem('tetrisHighscores') || '[]');
+    highscores.push(score);
+    highscores.sort((a,b) => b - a);
+    if(highscores.length > 10) highscores.length = 10;
+    localStorage.setItem('tetrisHighscores', JSON.stringify(highscores));
+
+    highscoresDiv.innerHTML = highscores.map((s,i) => `${i+1}. ${s}`).join('<br>');
   }
 
-  // Spiel neu starten nach Game Over
-  function restartGame(){
+  function resetGame(){
+    arena = createMatrix(COLS, ROWS);
+    score = 0;
+    level = 1;
+    linesCleared = 0;
+    dropInterval = 1000;
+    gameOver = false;
+    paused = false;
+    updateScore();
+    resetPlayer();
+    menu.style.display = 'none';
     gameOverOverlay.style.display = 'none';
-    startGame();
+    canvas.style.display = 'block';
+    info.style.display = 'block';
+    controls.style.display = 'block';
+    pauseOverlay.style.display = 'none';
+    lastTime = 0;
+    dropCounter = 0;
+    requestAnimationFrame(update);
   }
 
-  // Steuerung Tastatur
-  window.addEventListener('keydown', event => {
+  function togglePause(){
     if(gameOver) return;
-    if(event.key === 'ArrowLeft'){
-      player.pos.x--;
-      if(collide(arena, player)){
-        player.pos.x++;
+    paused = !paused;
+    pauseOverlay.style.display = paused ? 'block' : 'none';
+    if(!paused){
+      lastTime = performance.now();
+      requestAnimationFrame(update);
+    }
+  }
+
+  // Update-Loop
+  function update(time = 0){
+    if(paused || gameOver) return;
+    const deltaTime = time - lastTime;
+    lastTime = time;
+    dropCounter += deltaTime;
+    if(dropCounter > dropInterval){
+      playerDrop();
+    }
+    draw();
+    requestAnimationFrame(update);
+  }
+
+  // Controls
+
+  document.addEventListener('keydown', e => {
+    if(gameOver) return;
+    if(paused){
+      if(e.key === 'Escape'){
+        togglePause();
       }
-    } else if(event.key === 'ArrowRight'){
-      player.pos.x++;
-      if(collide(arena, player)){
+      return;
+    }
+    switch(e.key){
+      case 'ArrowLeft':
         player.pos.x--;
-      }
-    } else if(event.key === 'ArrowDown'){
-      player.pos.y++;
-      if(collide(arena, player)){
-        player.pos.y--;
-        merge(arena, player);
-        arenaSweep();
-        playerReset();
-        updateScore();
-      }
-      dropCounter = 0;
-    } else if(event.key === 'ArrowUp'){
-      playerRotate();
-    } else if(event.key === 'Escape'){
-      togglePause();
+        if(collide(arena, player)){
+          player.pos.x++;
+        }
+        break;
+      case 'ArrowRight':
+        player.pos.x++;
+        if(collide(arena, player)){
+          player.pos.x--;
+        }
+        break;
+      case 'ArrowDown':
+        playerDrop();
+        break;
+      case 'ArrowUp':
+        playerRotate();
+        break;
+      case 'Escape':
+        togglePause();
+        break;
     }
   });
 
-  // Touch-Steuerung (swipe + tap)
-  let touchStartX = null;
-  let touchStartY = null;
-  let touchMoved = false;
+  // Touchsteuerung für Smartphone
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
   canvas.addEventListener('touchstart', e => {
-    if(gameOver) return;
+    if(gameOver || paused) return;
     const touch = e.touches[0];
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
-    touchMoved = false;
-  }, {passive:true});
+    touchStartTime = performance.now();
+  });
 
-  canvas.addEventListener('touchmove', e => {
-    if(gameOver) return;
-    const touch = e.touches[0];
+  canvas.addEventListener('touchend', e => {
+    if(gameOver || paused) return;
+    const touch = e.changedTouches[0];
     const dx = touch.clientX - touchStartX;
     const dy = touch.clientY - touchStartY;
-    if(Math.abs(dx) > 30 && !touchMoved){
-      touchMoved = true;
+    const dt = performance.now() - touchStartTime;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    const swipeThreshold = 20; // minimale Bewegung in px
+    const tapMaxDuration = 300; // Max Zeit für Tap
+
+    if(absDx < swipeThreshold && absDy < swipeThreshold && dt < tapMaxDuration){
+      // Tap: Drehen
+      playerRotate();
+      draw();
+      return;
+    }
+
+    if(absDx > absDy){
+      // Horizontal swipe
       if(dx > 0){
-        // nach rechts
+        // swipe rechts
         player.pos.x++;
         if(collide(arena, player)) player.pos.x--;
       } else {
-        // nach links
+        // swipe links
         player.pos.x--;
         if(collide(arena, player)) player.pos.x++;
       }
-      touchStartX = touch.clientX; // Reset Startpunkt für weitere swipes
-    } else if(Math.abs(dy) > 30 && !touchMoved){
-      touchMoved = true;
+    } else {
+      // Vertikal swipe
       if(dy > 0){
-        // nach unten fallen lassen
+        // swipe runter → schneller fallen lassen (1 Schritt nach unten)
         player.pos.y++;
         if(collide(arena, player)){
           player.pos.y--;
           merge(arena, player);
-          arenaSweep();
-          playerReset();
+          resetPlayer();
+          clearLines();
           updateScore();
         }
         dropCounter = 0;
       } else {
-        // nach oben: drehen
-        playerRotate();
+        // swipe hoch (optional: Hard drop, hier noch nicht implementiert)
       }
-      touchStartY = touch.clientY;
     }
-  }, {passive:true});
-
-  canvas.addEventListener('touchend', e => {
-    if(gameOver) return;
-    if(!touchMoved){
-      // Tap = drehen
-      playerRotate();
-    }
+    draw();
   });
 
-  // Buttons
-  startBtn.onclick = startGame;
-  resumeBtn.onclick = () => {
+  // Button Events
+
+  startBtn.addEventListener('click', () => {
+    resetGame();
+  });
+
+  resumeBtn.addEventListener('click', () => {
     togglePause();
-  };
-  restartBtn.onclick = restartGame;
+  });
+
+  restartBtn.addEventListener('click', () => {
+    resetGame();
+  });
 
 })();
 </script>
+
 </body>
 </html>
