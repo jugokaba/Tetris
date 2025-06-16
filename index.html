@@ -18,13 +18,15 @@
       padding-top: 20px;
       overflow: hidden;
     }
-    canvas {
+    #tetris {
       background: #000;
       border: 2px solid white;
       touch-action: none;
-      width: 240px;
-      height: 400px;
+      width: 100%;
+      max-width: 480px;
+      aspect-ratio: 3 / 5;
       image-rendering: pixelated;
+      display: none;
     }
     #info {
       margin-top: 10px;
@@ -59,7 +61,7 @@
     <h2>Startmenü</h2>
     <button onclick="startGame()">Spiel Starten</button>
   </div>
-  <canvas id="tetris" width="240" height="400" style="display:none;"></canvas>
+  <canvas id="tetris" width="240" height="400"></canvas>
   <div id="info">
     <p>Punkte: <span id="score">0</span> | Level: <span id="level">1</span></p>
   </div>
