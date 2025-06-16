@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Tetris - Smartphone Touch & PC Tastatur</title>
+<title>Tetris - Rotation per Swipe fix</title>
 <style>
   body {
     margin:0; padding:0; background:#111; color:#fff; font-family:sans-serif;
@@ -234,12 +234,13 @@
     }
   });
 
-  // Touchsteuerung
+  // Touchsteuerung mit robustem Swipe nach oben für Rotation
+
   let touchStartX = 0;
   let touchStartY = 0;
   let touchId = null;
   let lastMoveTime = 0;
-  const MOVE_INTERVAL = 300; // Millisekunden Verzögerung zwischen Bewegungen (langsamer!)
+  const MOVE_INTERVAL = 300; // Bewegungs-Delay
 
   canvas.addEventListener('touchstart', e => {
     if(e.touches.length !== 1) return;
@@ -247,7 +248,7 @@
     touchStartX = t.clientX;
     touchStartY = t.clientY;
     touchId = t.identifier;
-    lastMoveTime = 0; // Reset Zeit
+    lastMoveTime = 0;
   });
 
   canvas.addEventListener('touchmove', e => {
@@ -259,41 +260,45 @@
     const dy = t.clientY - touchStartY;
     const now = Date.now();
 
-    // Bewegungen nur alle MOVE_INTERVAL erlauben (langsamer)
     if(now - lastMoveTime < MOVE_INTERVAL) return;
 
-    if(Math.abs(dx) > 20 || Math.abs(dy) > 20) {
-      if(Math.abs(dx) > Math.abs(dy)) {
-        // Horizontal bewegen
-        if(dx > 0) {
-          playerMove(1);
-        } else {
-          playerMove(-1);
-        }
-        lastMoveTime = now;
-        touchStartX = t.clientX;
-        touchStartY = t.clientY;
-      } else {
-        // Vertikal
-        if(dy > 0) {
-          playerDrop();
-          lastMoveTime = now;
-          touchStartX = t.clientX;
-          touchStartY = t.clientY;
-        } else {
-          // Swipe nach oben = Rotation
-          playerRotate(1);
-          lastMoveTime = now;
-          touchStartX = t.clientX;
-          touchStartY = t.clientY;
-        }
-      }
+    // Swipe nach oben für Rotation (mind 40px hoch, weniger als 30px horizontal)
+    if(dy < -40 && Math.abs(dx) < 30) {
+      playerRotate(1);
+      lastMoveTime = now;
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      return;
     }
+
+    // horizontale Bewegungen nach links/rechts
+    if(Math.abs(dx) > 20 && Math.abs(dx) > Math.abs(dy)) {
+      if(dx > 0) {
+        playerMove(1);
+      } else {
+        playerMove(-1);
+      }
+      lastMoveTime = now;
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      return;
+    }
+
+    // Swipe nach unten für schnellen Fall
+    if(dy > 20 && Math.abs(dy) > Math.abs(dx)) {
+      playerDrop();
+      lastMoveTime = now;
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      return;
+    }
+
   });
 
   canvas.addEventListener('touchend', e => {
     touchId = null;
   });
+
   canvas.addEventListener('touchcancel', e => {
     touchId = null;
   });
@@ -309,6 +314,7 @@
   playerReset();
   updateScore();
   update();
+
 })();
 </script>
 
