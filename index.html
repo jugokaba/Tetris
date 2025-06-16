@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Tetris mit Swipe-Rotation</title>
+<title>Tetris mit Tap-über-Block Rotation</title>
 <style>
   body {
     margin:0; padding:0; background:#111; color:#fff; font-family:sans-serif;
@@ -234,12 +234,12 @@
     }
   });
 
-  // Touchsteuerung: Swipe nach oben = Rotation, links/rechts = Bewegung, nach unten = schneller fallen
+  // Touchsteuerung angepasst:
   let touchStartX = 0;
   let touchStartY = 0;
   let touchEndX = 0;
   let touchEndY = 0;
-  const swipeThreshold = 30; // minimaler Abstand für Swipe-Erkennung
+  const swipeThreshold = 30;
 
   canvas.addEventListener('touchstart', e => {
     if(e.touches.length !== 1) return;
@@ -257,31 +257,48 @@
     const dx = touchEndX - touchStartX;
     const dy = touchEndY - touchStartY;
 
-    if(Math.abs(dx) < swipeThreshold && Math.abs(dy) < swipeThreshold) {
-      // Zu klein für Swipe, ignoriere
+    // Prüfen: Wenn nur ein Tap (kaum Bewegung)
+    if(Math.abs(dx) < 10 && Math.abs(dy) < 10){
+      // Tap: Prüfe, ob oberhalb des Blocks getippt wurde
+      // Position des Blocks in Pixel:
+      const blockTop = player.pos.y * BLOCK;
+      const blockLeft = player.pos.x * BLOCK;
+      const blockWidth = player.matrix[0].length * BLOCK;
+      const blockHeight = player.matrix.length * BLOCK;
+
+      // Koordinaten relativ zum Canvas
+      const rect = canvas.getBoundingClientRect();
+      const tapX = touchEndX - rect.left;
+      const tapY = touchEndY - rect.top;
+
+      if(tapX >= blockLeft && tapX <= blockLeft + blockWidth){
+        if(tapY < blockTop){
+          // Tap oberhalb des Blocks → drehen
+          playerRotate(1);
+          draw();
+          return;
+        }
+      }
+      // Tap sonst ignorieren
       return;
     }
 
-    // Swipe-Richtung erkennen
-    if(Math.abs(dy) > Math.abs(dx)) {
-      // Vertikaler Swipe
-      if(dy < 0) {
-        // Swipe nach oben = Rotation
-        playerRotate(1);
-      } else {
-        // Swipe nach unten = Block schneller fallen lassen
-        playerDrop();
-      }
-    } else {
+    // Sonstige Swipe-Bewegungen:
+    if(Math.abs(dx) > Math.abs(dy)) {
       // Horizontaler Swipe
-      if(dx > 0) {
-        // Swipe nach rechts
+      if(dx > swipeThreshold) {
         playerMove(1);
-      } else {
-        // Swipe nach links
+      } else if(dx < -swipeThreshold) {
         playerMove(-1);
       }
+    } else {
+      // Vertikaler Swipe
+      if(dy > swipeThreshold) {
+        // Swipe nach unten → Block schneller fallen lassen
+        playerDrop();
+      }
     }
+
   });
 
   const player = {
@@ -298,6 +315,5 @@
 
 })();
 </script>
-
 </body>
 </html>
